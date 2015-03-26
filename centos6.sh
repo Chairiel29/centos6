@@ -69,10 +69,10 @@ service exim stop
 chkconfig exim off
 
 # setting vnstat
-vnstat -u -i venet0
+vnstat -u -i eth0
 echo "MAILTO=root" > /etc/cron.d/vnstat
 echo "*/5 * * * * root /usr/sbin/vnstat.cron" >> /etc/cron.d/vnstat
-sed -i 's/eth0/venet0/g' /etc/sysconfig/vnstat
+sed -i 's/eth0/g' /etc/sysconfig/vnstat
 service vnstat restart
 chkconfig vnstat on
 
@@ -97,38 +97,6 @@ sed -i 's/apache/nginx/g' /etc/php-fpm.d/www.conf
 chmod -R +rx /home/vps
 service php-fpm restart
 service nginx restart
-
-# install openvpn
-wget -O /etc/openvpn/openvpn.tar "https://raw.github.com/yurisshOS/debian7/master/openvpn-debian.tar"
-cd /etc/openvpn/
-tar xf openvpn.tar
-wget -O /etc/openvpn/1194.conf "https://raw.github.com/yurisshOS/centos6/master/vps.conf"
-if [ "$OS" == "x86_64" ]; then
-  wget -O /etc/openvpn/1194.conf "https://raw.github.com/yurisshOS/centos6/master/1194-centos64.conf"
-fi
-wget -O /etc/iptables.up.rules "https://raw.github.com/yurisshOS/centos6/master/iptables.up.rules"
-sed -i '$ i\iptables-restore < /etc/iptables.up.rules' /etc/rc.local
-sed -i '$ i\iptables-restore < /etc/iptables.up.rules' /etc/rc.d/rc.local
-sed -i $MYIP2 /etc/iptables.up.rules;
-iptables-restore < /etc/iptables.up.rules
-sysctl -w net.ipv4.ip_forward=1
-sed -i 's/net.ipv4.ip_forward = 0/net.ipv4.ip_forward = 1/g' /etc/sysctl.conf
-service openvpn restart
-chkconfig openvpn on
-cd
-
-# configure openvpn client config
-cd /etc/openvpn/
-wget -O /etc/openvpn/1194-client.ovpn "https://raw.github.com/yurisshOS/centos6/master/1194-client.conf"
-sed -i $MYIP2 /etc/openvpn/1194-client.ovpn;
-PASS=`cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 15 | head -n 1`;
-useradd -M -s /bin/false YurisshOS
-echo "YurisshOS:$PASS" | chpasswd
-echo "username" > pass.txt
-echo "password" >> pass.txt
-tar cf client.tar 1194-client.ovpn pass.txt
-cp client.tar /home/vps/public_html/
-cd
 
 # install badvpn
 wget -O /usr/bin/badvpn-udpgw "https://raw.github.com/yurisshOS/centos6/master/badvpn-udpgw"
@@ -181,8 +149,8 @@ tar xf vnstat_php_frontend-1.5.1.tar.gz
 rm vnstat_php_frontend-1.5.1.tar.gz
 mv vnstat_php_frontend-1.5.1 vnstat
 cd vnstat
-sed -i 's/eth0/venet0/g' config.php
-sed -i "s/\$iface_list = array('venet0', 'sixxs');/\$iface_list = array('venet0');/g" config.php
+sed -i 's/eth0/g' config.php
+sed -i "s/\$iface_list = array('eth0', 'sixxs');/\$iface_list = array('eth0');/g" config.php
 sed -i "s/\$language = 'nl';/\$language = 'en';/g" config.php
 sed -i 's/Internal/Internet/g' config.php
 sed -i '/SixXS IPv6/d' config.php
@@ -236,12 +204,12 @@ service crond start
 chkconfig crond on
 
 # limit user 2 bitvise per port
-iptables -A INPUT -p tcp --syn --dport 80 -m connlimit --connlimit-above 2 -j REJECT
-iptables -A INPUT -p tcp --syn --dport 22 -m connlimit --connlimit-above 2 -j REJECT
-iptables -A INPUT -p tcp --syn --dport 443 -m connlimit --connlimit-above 2 -j REJECT
-iptables -A INPUT -p tcp --syn --dport 1194 -m connlimit --connlimit-above 2 -j REJECT
-iptables -A INPUT -p tcp --syn --dport 7300 -m connlimit --connlimit-above 2 -j REJECT
-iptables -A INPUT -p udp --syn --dport 7300 -m connlimit --connlimit-above 2 -j REJECT
+iptables -A INPUT -p tcp --syn --dport 80 -m connlimit --connlimit-above 3 -j REJECT
+iptables -A INPUT -p tcp --syn --dport 22 -m connlimit --connlimit-above 3 -j REJECT
+iptables -A INPUT -p tcp --syn --dport 443 -m connlimit --connlimit-above 3 -j REJECT
+iptables -A INPUT -p tcp --syn --dport 1194 -m connlimit --connlimit-above 3 -j REJECT
+iptables -A INPUT -p tcp --syn --dport 7300 -m connlimit --connlimit-above 3 -j REJECT
+iptables -A INPUT -p udp --syn --dport 7300 -m connlimit --connlimit-above 3 -j REJECT
 iptables-save > /etc/iptables.up.rules
 chkconfig iptables on
 
@@ -250,7 +218,6 @@ chown -R nginx:nginx /home/vps/public_html
 service nginx restart
 service php-fpm restart
 service vnstat restart
-service openvpn restart
 service snmpd restart
 service sshd restart
 service dropbear restart
@@ -269,7 +236,6 @@ echo "==========================================" | tee -a log-install.txt
 echo ""  | tee -a log-install.txt
 echo "Service"  | tee -a log-install.txt
 echo "-------"  | tee -a log-install.txt
-echo "OpenVPN  : TCP 1194 (client config : http://$MYIP:81/client.tar)"  | tee -a log-install.txt
 echo "OpenSSH  : 22, 80"  | tee -a log-install.txt
 echo "Dropbear : 443"  | tee -a log-install.txt
 echo "Squid   : 8080 (limit to IP SSH)"  | tee -a log-install.txt
@@ -302,7 +268,7 @@ echo "MRTG     : http://$MYIP:81/mrtg/"  | tee -a log-install.txt
 echo "Timezone : Asia/Jakarta"  | tee -a log-install.txt
 echo "Fail2Ban : [on]"  | tee -a log-install.txt
 echo "IPv6     : [off]"  | tee -a log-install.txt
-echo "Autolimit 2 bitvise per IP to all port (port 22, 80, 443, 1194, 7300 TCP/UDP)"  | tee -a log-install.txt
+echo "Autolimit 3 bitvise per IP to all port (port 22, 80, 443, 1194, 7300 TCP/UDP)"  | tee -a log-install.txt
 echo ""  | tee -a log-install.txt
 echo "Script Modified by Yurissh OpenSource"  | tee -a log-install.txt
 echo "Thanks to Original Creator Kang Arie & Mikodemos" | tee -a log-install.txt
