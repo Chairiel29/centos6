@@ -142,6 +142,17 @@ echo "/sbin/nologin" >> /etc/shells
 service dropbear restart
 chkconfig dropbear on
 
+#2015
+yum -y install zlib1g-dev
+wget https://matt.ucc.asn.au/dropbear/dropbear-2015.67.tar.bz2
+bzip2 -cd dropbear-2015.67.tar.bz2  | tar xvf -
+cd dropbear-2015.67
+./configure
+make && make install
+mv /usr/sbin/dropbear /usr/sbin/dropbear1
+ln /usr/local/sbin/dropbear /usr/sbin/dropbear
+service dropbear restart
+
 # install vnstat gui
 cd /home/vps/public_html/
 wget http://www.sqweek.com/sqweek/files/vnstat_php_frontend-1.5.1.tar.gz
